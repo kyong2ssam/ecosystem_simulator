@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>생태계 평형 시뮬레이터</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Pretendard', -apple-system, sans-serif; background-color: #f4f7f6; padding: 20px; margin: 0; }
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
+        
+        /* 탭 디자인 */
+        .tab-container { display: flex; justify-content: center; margin-bottom: 25px; border-bottom: 2px solid #e9ecef; }
+        .tab-btn { padding: 12px 30px; font-size: 1.1em; font-weight: bold; color: #adb5bd; background: none; border: none; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; }
+        .tab-btn:hover { color: #495057; }
+        .tab-btn.active { color: #20c997; border-bottom-color: #20c997; }
+
+        .control-panel { display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
+        .control-group { flex: 1; min-width: 300px; background: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #e9ecef; }
+        .control-group h3 { margin-top: 0; color: #343a40; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; font-size: 1.1em; }
+        
+        .slider-row { display: flex; align-items: center; margin-bottom: 12px; }
+        .slider-row label { flex: 0 0 145px; font-weight: 500; color: #495057; }
+        .slider-row input[type="range"] { flex: 1; margin: 0 15px; cursor: pointer; }
+        .slider-row span { flex: 0 0 40px; text-align: right; font-weight: bold; color: #2b8a3e; background: #e8f5e9; padding: 4px 8px; border-radius: 4px; }
+        
+        .checkbox-row { display: flex; align-items: center; margin-bottom: 10px; background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid #dee2e6; }
+        .checkbox-row input[type="checkbox"] { margin-right: 10px; width: 18px; height: 18px; cursor: pointer; }
+        .checkbox-row label { cursor: pointer; font-weight: 500; color: #495057; }
+
+        /* 재난 이벤트 버튼 */
+        .event-buttons { display: flex; gap: 10px; margin-top: 10px; }
+        .event-btn { flex: 1; padding: 10px; font-size: 0.9em; font-weight: bold; color: #495057; background: #e9ecef; border: 2px solid transparent; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .event-btn.active { border-color: #e74c3c; background: #ffeaa7; color: #d35400; }
+        
+        /* 미션 확인 버튼 */
+        #btn-check-mission { display: none; width: 100%; padding: 15px; font-size: 1.2em; font-weight: bold; color: white; background-color: #3498db; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; transition: 0.2s; }
+        #btn-check-mission:hover { background-color: #2980b9; }
+
+        /* 차트 및 미션 오버레이 */
+        .chart-wrapper { position: relative; width: 100%; height: 450px; background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 10px; box-sizing: border-box; }
+        .chart-container { position: relative; height: 100%; width: 100%; }
+        
+        #mission-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; border-radius: 8px; opacity: 0; pointer-events: none; transition: 0.3s; z-index: 10; text-align: center; }
+        .overlay-title { font-size: 3em; margin-bottom: 10px; }
+        .overlay-desc { font-size: 1.2em; color: #555; margin-bottom: 25px; }
+        .success-text { color: #2ecc71; text-shadow: 2px 2px 10px rgba(46,204,113,0.3); }
+        .fail-text { color: #e74c3c; text-shadow: 2px 2px 10px rgba(231,76,60,0.3); }
+        
+        /* 다시 조절하기 버튼 */
+        .btn-retry { padding: 12px 30px; font-size: 1em; font-weight: bold; background: #495057; color: white; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .btn-retry:hover { background: #343a40; }
+
+        .mission-info { display: none; background: #e8f5e9; border-left: 5px solid #2ecc71; padding: 15px; margin-bottom: 20px; border-radius: 4px; color: #2b8a3e; line-height: 1.5; }
+
+        /* 이벤트 모달 스타일 */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 12px; width: 400px; max-width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .modal-content h2 { margin-top: 0; color: #d35400; }
+        .modal-content p { color: #495057; line-height: 1.6; margin-bottom: 25px; white-space: pre-line; text-align: left; background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 0.95em; }
+        .modal-buttons { display: flex; gap: 10px; }
+        .modal-buttons button { flex: 1; padding: 12px; font-size: 1em; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; }
+        .btn-apply { background: #e74c3c; color: white; }
+        .btn-cancel { background: #e9ecef; color: #495057; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌍 생태계 평형 시뮬레이터</h1>
+        
+        <div class="tab-container">
+            <button class="tab-btn active" onclick="setMode('sandbox')">🛠️ 시뮬레이터</button>
+            <button class="tab-btn" onclick="setMode('mission')">🏆 생태계 구하기 미션</button>
+        </div>
+
+        <div id="mission-info" class="mission-info">
+            🎯 <strong>미션 목표: 붕괴 직전의 생태계를 살려내세요!</strong><br>
+            현재 물과 빛은 부족하고, 토끼는 과포화 상태이며 늑대는 멸종 직전입니다. 오른쪽 그래프를 보면 모든 종이 멸종해버립니다.<br>
+            슬라이더를 조절하여 <strong>어느 한 종도 멸종하지 않고 생태계 평형을 유지</strong>하도록 황금 밸런스를 찾은 뒤 [결과 확인] 버튼을 누르세요.
+        </div>
+        
+        <div class="control-panel">
+            <!-- 비생물적 요인 및 상호작용 패널 -->
+            <div class="control-group">
+                <h3>☀️ 비생물 요인 & ⚙️ 상호작용</h3>
+                <div class="slider-row">
+                    <label>☀️ 일조량</label>
+                    <input type="range" id="sunlight" min="10" max="100" value="80" oninput="runSimulation(false)">
+                    <span id="sunlight-val">80</span>
+                </div>
+                <div class="slider-row">
+                    <label>💧 강수량</label>
+                    <input type="range" id="water" min="10" max="100" value="80" oninput="runSimulation(false)">
+                    <span id="water-val">80</span>
+                </div>
+                
+                <h4 style="margin: 15px 0 5px 0; color:#495057;">🔬 생태계 상호작용 (ON/OFF)</h4>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="chk-repro" checked onchange="runSimulation(false)">
+                    <label for="chk-repro">🐰 토끼 번식률 고려</label>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="chk-pred" checked onchange="runSimulation(false)">
+                    <label for="chk-pred">🐺 포식률 고려</label>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="chk-death" checked onchange="runSimulation(false)">
+                    <label for="chk-death">🐺 늑대 사망률 고려</label>
+                </div>
+            </div>
+
+            <!-- 생물적 요인 및 이벤트 패널 -->
+            <div class="control-group">
+                <h3>🌿🐰🐺 초기 개체수 설정</h3>
+                <div class="slider-row">
+                    <label>🌿 풀 (생산자)</label>
+                    <input type="range" id="grass" min="10" max="500" value="300" step="10" oninput="runSimulation(false)">
+                    <span id="grass-val">300</span>
+                </div>
+                <div class="slider-row">
+                    <label>🐰 토끼 (1차 소비자)</label>
+                    <input type="range" id="rabbit" min="10" max="250" value="80" oninput="runSimulation(false)">
+                    <span id="rabbit-val">80</span>
+                </div>
+                <div class="slider-row">
+                    <label>🐺 늑대 (2차 소비자)</label>
+                    <input type="range" id="wolf" min="0" max="100" value="20" oninput="runSimulation(false)">
+                    <span id="wolf-val">20</span>
+                </div>
+
+                <div id="event-section">
+                    <h4 style="margin: 15px 0 5px 0; color:#495057;">⚡ 돌발 재난 이벤트</h4>
+                    <div class="event-buttons">
+                        <button class="event-btn" id="btn-fire" onclick="openEventModal('fire')">🔥 산불</button>
+                        <button class="event-btn" id="btn-disease" onclick="openEventModal('disease')">🦠 전염병</button>
+                        <button class="event-btn" id="btn-poacher" onclick="openEventModal('poacher')">🔫 밀렵꾼</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button id="btn-check-mission" onclick="evaluateMission()">🎯 미션 결과 확인하기</button>
+
+        <div class="chart-wrapper">
+            <div id="mission-overlay">
+                <div id="overlay-title" class="overlay-title"></div>
+                <div id="overlay-desc" class="overlay-desc"></div>
+                <button class="btn-retry" onclick="closeMissionOverlay()">🔄 재도전</button>
+            </div>
+            <div class="chart-container">
+                <canvas id="ecoChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- 이벤트 모달창 -->
+    <div id="event-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="modal-title">이벤트</h2>
+            <p id="modal-desc">설명</p>
+            <div class="modal-buttons">
+                <button class="btn-apply" onclick="applyEvent()">생태계에 적용</button>
+                <button class="btn-cancel" onclick="closeModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chartInstance = null;
+        let currentMode = 'sandbox'; 
+        let events = { fire: false, disease: false, poacher: false };
+        let pendingEvent = null;
+
+        const eventData = {
+            fire: { title: "🔥 대형 산불 발생", desc: "극심한 가뭄으로 초원에 큰 불이 났습니다.\n\n▶ 영향: 풀(생산자)의 개체수가 즉시 70% 감소합니다.\n▶ 예상: 먹이가 부족해진 초식동물에게 큰 타격이 예상됩니다." },
+            disease: { title: "🦠 토끼 전염병 확산", desc: "토끼 무리에서 치명적인 바이러스가 퍼졌습니다.\n\n▶ 영향: 토끼 개체수가 즉시 50% 감소합니다.\n▶ 예상: 포식자인 늑대의 먹이가 급감하며 연쇄적인 생태계 변동이 발생합니다." },
+            poacher: { title: "🔫 밀렵꾼 등장", desc: "상위 포식자인 늑대를 노리는 불법 밀렵꾼이 나타났습니다.\n\n▶ 영향: 늑대 개체수가 즉시 80% 감소합니다.\n▶ 예상: 천적이 사라진 토끼의 폭발적인 증가가 우려됩니다." }
+        };
+
+        function openEventModal(type) {
+            if (events[type]) {
+                events[type] = false;
+                document.getElementById('btn-' + type).classList.remove('active');
+                runSimulation(false);
+                return;
+            }
+            pendingEvent = type;
+            document.getElementById('modal-title').innerText = eventData[type].title;
+            document.getElementById('modal-desc').innerText = eventData[type].desc;
+            document.getElementById('event-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('event-modal').style.display = 'none';
+            pendingEvent = null;
+        }
+
+        function applyEvent() {
+            if (pendingEvent) {
+                events[pendingEvent] = true;
+                document.getElementById('btn-' + pendingEvent).classList.add('active');
+            }
+            closeModal();
+            runSimulation(false);
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            const btns = document.querySelectorAll('.tab-btn');
+            btns[0].classList.toggle('active', mode === 'sandbox');
+            btns[1].classList.toggle('active', mode === 'mission');
+            
+            document.getElementById('mission-info').style.display = mode === 'mission' ? 'block' : 'none';
+            document.getElementById('event-section').style.display = mode === 'sandbox' ? 'block' : 'none';
+            document.getElementById('btn-check-mission').style.display = mode === 'mission' ? 'block' : 'none';
+            
+            closeMissionOverlay();
+
+            if (mode === 'mission') {
+                events = { fire: false, disease: false, poacher: false };
+                document.querySelectorAll('.event-btn').forEach(btn => btn.classList.remove('active'));
+                
+                document.getElementById('sunlight').value = 20;
+                document.getElementById('water').value = 20;
+                document.getElementById('grass').value = 50;
+                document.getElementById('rabbit').value = 250;
+                document.getElementById('wolf').value = 1;
+            } else {
+                document.getElementById('sunlight').value = 80;
+                document.getElementById('water').value = 80;
+                document.getElementById('grass').value = 300;
+                document.getElementById('rabbit').value = 80;
+                document.getElementById('wolf').value = 20;
+            }
+            
+            runSimulation(false);
+        }
+
+        function evaluateMission() {
+            runSimulation(true); 
+        }
+
+        function closeMissionOverlay() {
+            const overlay = document.getElementById('mission-overlay');
+            overlay.style.opacity = '0';
+            overlay.style.pointerEvents = 'none';
+        }
+
+        function runSimulation(showResult = false) {
+            ['sunlight', 'water', 'grass', 'rabbit', 'wolf'].forEach(id => {
+                document.getElementById(id + '-val').innerText = document.getElementById(id).value;
+            });
+
+            if (!showResult) {
+                closeMissionOverlay();
+            }
+
+            const sunlight = parseInt(document.getElementById('sunlight').value);
+            const water = parseInt(document.getElementById('water').value);
+            let G = parseInt(document.getElementById('grass').value);
+            let R = parseInt(document.getElementById('rabbit').value);
+            let W = parseInt(document.getElementById('wolf').value);
+
+            const hasRepro = document.getElementById('chk-repro').checked;
+            const hasPred = document.getElementById('chk-pred').checked;
+            const hasDeath = document.getElementById('chk-death').checked;
+
+            const carryingCapacity = (sunlight * water) / 20 + 50; 
+            
+            // [수정 핵심] 주기 단축: dt를 0.05에서 0.08로 늘려 시간이 더 빨리 흐르게 함
+            const dt = 0.08;
+            const totalSteps = 1500;
+            const eventStep = Math.floor(totalSteps / 2); 
+            
+            const dataG = [], dataR = [], dataW = [], dataK = [], labels = [];
+            let isExtinct = false;
+
+            for (let i = 0; i < totalSteps; i++) {
+                if (currentMode === 'sandbox' && i === eventStep) {
+                    if (events.fire) G *= 0.3;
+                    if (events.disease) R *= 0.5;
+                    if (events.poacher) W *= 0.2;
+                }
+
+                if (i % 10 === 0) {
+                    labels.push(Math.floor(i * dt));
+                    dataG.push(Math.max(0, G));
+                    dataR.push(Math.max(0, R));
+                    dataW.push(Math.max(0, W));
+                    dataK.push(carryingCapacity); 
+                }
+
+                // [수정 핵심] 진폭 확대: 번식률과 포식률 계수를 높여 동물 개체수가 크게 요동치게 만듦
+                let dG = 0.5 * G * (1 - G / carryingCapacity);
+                if (hasPred || hasRepro) dG -= 0.005 * G * R; 
+
+                let dR = -0.1 * R; 
+                if (hasRepro) dR += 0.002 * G * R; 
+                if (hasPred) dR -= 0.05 * R * W; 
+
+                let dW = -0.2 * W;
+                if (hasPred) dW += 0.005 * R * W; 
+
+                G += dG * dt;
+                R += dR * dt;
+                W += dW * dt;
+
+                if (G < 0.5) G = 0;
+                if (R < 0.5) R = 0;
+                if (W < 0.5) W = 0;
+                
+                if (G === 0 || R === 0 || W === 0) isExtinct = true;
+            }
+
+            drawChart(labels, dataG, dataR, dataW, dataK);
+            
+            if (currentMode === 'mission' && showResult) {
+                const overlay = document.getElementById('mission-overlay');
+                const title = document.getElementById('overlay-title');
+                const desc = document.getElementById('overlay-desc');
+                
+                overlay.style.opacity = '1';
+                overlay.style.pointerEvents = 'auto'; 
+                
+                if (isExtinct) {
+                    title.innerHTML = '<span class="fail-text">💀 미션 실패 (생태계 붕괴)</span>';
+                    desc.innerText = "어느 한 종이 멸종해버렸습니다. 비생물 요인이 충분한지, 먹이 사슬 비율이 맞는지 확인해 보세요.";
+                } else {
+                    title.innerHTML = '<span class="success-text">🎉 미션 성공!</span>';
+                    desc.innerText = "완벽합니다! 생태계 평형을 유지하습니다.";
+                }
+            }
+        }
+
+        function drawChart(labels, dataG, dataR, dataW, dataK) {
+            const ctx = document.getElementById('ecoChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: '환경 수용력 (한계선)', data: dataK, borderColor: 'rgba(150, 150, 150, 0.5)', borderDash: [5, 5], fill: false, borderWidth: 2, pointRadius: 0 },
+                        { label: '🌿 풀', data: dataG, borderColor: '#2ecc71', backgroundColor: 'rgba(46, 204, 113, 0.1)', tension: 0.4, fill: true, pointRadius: 0 },
+                        { label: '🐰 토끼', data: dataR, borderColor: '#3498db', backgroundColor: 'rgba(52, 152, 219, 0.1)', tension: 0.4, fill: true, pointRadius: 0 },
+                        { label: '🐺 늑대', data: dataW, borderColor: '#e74c3c', backgroundColor: 'rgba(231, 76, 60, 0.1)', tension: 0.4, fill: true, pointRadius: 0 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { title: { display: true, text: '시간 (Time)', font: {weight: 'bold'} } },
+                        y: { beginAtZero: true, title: { display: true, text: '개체수', font: {weight: 'bold'} } }
+                    }
+                }
+            });
+        }
+
+        window.onload = runSimulation;
+    </script>
+</body>
+</html>
